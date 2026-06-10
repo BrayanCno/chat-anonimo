@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Chat Anónimo Secreto</title>
+    <style>
+        body { font-family: Arial, sans-serif; background: #121212; color: white; padding: 20px; }
+        .oculto { display: none; }
+        #pantalla-chat { max-width: 500px; margin: auto; }
+        #caja-mensajes { height: 300px; border: 1px solid #333; overflow-y: scroll; padding: 10px; margin-bottom: 10px; background: #1e1e1e; }
+        img, video { max-width: 100%; display: block; margin-top: 5px; border-radius: 5px; }
+    </style>
+</head>
+<body>
+
+    <!-- PANTALLA DE ACCESO -->
+    <div id="pantalla-login">
+        <h2>Entrada al Chat Anónimo</h2>
+        <input type="text" id="apodo" placeholder="Apodo (Nickname)"><br><br>
+        <input type="number" id="edad" placeholder="Edad"><br><br>
+        <select id="sexo">
+            <option value="Masculino">Masculino</option>
+            <option value="Femenino">Femenino</option>
+            <option value="Otro">Otro</option>
+        </select><br><br>
+        <button onclick="crearSala()">Crear Nueva Sala</button>
+        <hr>
+        <input type="text" id="codigo-invitacion" placeholder="Código de invitación">
+        <button onclick="unirseSala()">Unirse con Código</button>
+    </div>
+
+    <!-- PANTALLA DEL CHAT -->
+    <div id="pantalla-chat" class="oculto">
+        <h3 id="info-sala">Esperando al otro usuario...</h3>
+        <div id="caja-mensajes"></div>
+        <input type="text" id="texto-mensaje" placeholder="Escribe un mensaje...">
+        <button onclick="enviarTexto()">Enviar</button>
+        <br><br>
+        <label>Enviar Foto/Video: </label>
+        <input type="file" id="archivo" accept="image/*,video/*">
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="index.js"></script>
+</body>
+</html>
