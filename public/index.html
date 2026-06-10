@@ -2,42 +2,120 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Chat Anónimo Secreto</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat Anónimo Privado</title>
     <style>
-        body { font-family: Arial, sans-serif; background: #121212; color: white; padding: 20px; }
-        .oculto { display: none; }
-        #pantalla-chat { max-width: 500px; margin: auto; }
-        #caja-mensajes { height: 300px; border: 1px solid #333; overflow-y: scroll; padding: 10px; margin-bottom: 10px; background: #1e1e1e; }
-        img, video { max-width: 100%; display: block; margin-top: 5px; border-radius: 5px; }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { background-color: #0b141a; color: #e9edef; display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; }
+        .oculto { display: none !important; }
+        
+        /* CONTENEDOR PRINCIPAL */
+        .card { background: #111b21; border-radius: 12px; width: 100%; max-width: 480px; padding: 30px; box-shadow: 0 8px 24px rgba(0,0,0,0.5); border: 1px solid #222e35; }
+        h2, h3 { text-align: center; margin-bottom: 20px; color: #00a884; font-weight: 600; }
+        hr { border: 0; height: 1px; background: #222e35; margin: 25px 0; }
+
+        /* FORMULARIOS */
+        .grupo-input { margin-bottom: 15px; display: flex; flex-direction: column; }
+        label { font-size: 13px; color: #8696a0; margin-bottom: 5px; }
+        input, select { background: #2a3942; border: 1px solid #2a3942; padding: 12px; border-radius: 8px; color: #fff; font-size: 15px; outline: none; transition: 0.2s; }
+        input:focus, select:focus { border-color: #00a884; }
+        
+        /* BOTONES */
+        button { background: #00a884; color: #111b21; border: none; padding: 12px; border-radius: 8px; font-size: 15px; font-weight: bold; cursor: pointer; width: 100%; transition: 0.2s; }
+        button:hover { background: #00cc99; }
+        .btn-secundario { background: #202c33; color: #00a884; border: 1px solid #2a3942; }
+        .btn-secundario:hover { background: #2a3942; }
+        .btn-salir { background: #ea0038; color: white; padding: 8px 15px; width: auto; font-size: 13px; border-radius: 6px; }
+        .btn-salir:hover { background: #ff1a4d; }
+
+        /* INTERFAZ DEL CHAT */
+        .chat-container { background: #111b21; border-radius: 12px; width: 100%; max-width: 600px; height: 85vh; display: flex; flex-direction: column; box-shadow: 0 8px 24px rgba(0,0,0,0.5); border: 1px solid #222e35; overflow: hidden; }
+        .chat-header { background: #202c33; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #222e35; }
+        .chat-header-info { display: flex; flex-direction: column; }
+        .chat-header-info span { font-size: 14px; color: #e9edef; font-weight: 600; }
+        .chat-header-info small { font-size: 12px; color: #8696a0; margin-top: 2px; }
+        
+        /* CAJA DE MENSAJES */
+        .chat-messages { flex: 1; background-image: radial-gradient(#202c33 1px, transparent 0); background-size: 24px 24px; background-color: #0b141a; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+        
+        /* BURBUJAS DE CHAT */
+        .msg-wrapper { display: flex; flex-direction: column; max-width: 75%; width: fit-content; margin-bottom: 4px; }
+        .msg-wrapper.yo { align-self: flex-end; }
+        .msg-wrapper.otro { align-self: flex-start; }
+        
+        .msg-autor { font-size: 11px; color: #8696a0; margin-bottom: 2px; padding-left: 5px; }
+        .yo .msg-autor { display: none; } /* Ocultar el nombre "Tú" para un diseño más limpio */
+
+        .bubble { padding: 9px 14px; border-radius: 12px; font-size: 15px; line-height: 1.4; word-break: break-word; position: relative; }
+        .yo .bubble { background: #005c4b; color: #e9edef; border-top-right-radius: 2px; }
+        .otro .bubble { background: #202c33; color: #e9edef; border-top-left-radius: 2px; }
+        
+        img, video { max-width: 100%; max-height: 250px; border-radius: 8px; margin-top: 5px; display: block; object-fit: cover; }
+
+        /* AREA DE ENTRADA DE MENSAJES */
+        .chat-input-area { background: #202c33; padding: 12px 20px; display: flex; align-items: center; gap: 12px; }
+        .chat-input-area input[type="text"] { flex: 1; background: #2a3942; border: none; padding: 12px 16px; border-radius: 8px; color: white; font-size: 15px; }
+        .chat-input-area button { width: auto; padding: 12px 24px; }
+        
+        /* BOTÓN DE ADJUNTAR ARCHIVO */
+        .btn-adjuntar { background: #2a3942; border-radius: 8px; padding: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 42px; height: 42px; transition: 0.2s; }
+        .btn-adjuntar:hover { background: #374955; }
+        .btn-adjuntar svg { fill: #8696a0; width: 22px; height: 22px; }
     </style>
 </head>
 <body>
 
     <!-- PANTALLA DE ACCESO -->
-    <div id="pantalla-login">
-        <h2>Entrada al Chat Anónimo</h2>
-        <input type="text" id="apodo" placeholder="Apodo (Nickname)"><br><br>
-        <input type="number" id="edad" placeholder="Edad"><br><br>
-        <select id="sexo">
-            <option value="Masculino">Masculino</option>
-            <option value="Femenino">Femenino</option>
-            <option value="Otro">Otro</option>
-        </select><br><br>
-        <button onclick="crearSala()">Crear Nueva Sala</button>
+    <div id="pantalla-login" class="card">
+        <h2>Acceso Anónimo</h2>
+        <div class="grupo-input">
+            <label>Apodo / Nickname</label>
+            <input type="text" id="apodo" placeholder="Ej. Cazador">
+        </div>
+        <div class="grupo-input">
+            <label>Edad</label>
+            <input type="number" id="edad" placeholder="Ej. 25">
+        </div>
+        <div class="grupo-input">
+            <label>Sexo</label>
+            <select id="sexo">
+                <option value="Masculino">Masculino</option>
+                <option value="Femenino">Femenino</option>
+                <option value="Otro">Otro</option>
+            </select>
+        </div>
+        <button onclick="crearSala()" style="margin-top: 10px;">Crear Nueva Sala</button>
         <hr>
-        <input type="text" id="codigo-invitacion" placeholder="Código de invitación">
-        <button onclick="unirseSala()">Unirse con Código</button>
+        <div class="grupo-input">
+            <label>Código de Invitación</label>
+            <input type="text" id="codigo-invitacion" placeholder="Pega el código aquí">
+        </div>
+        <button onclick="unirseSala()" class="btn-secundario">Unirse a Sala</button>
     </div>
 
-    <!-- PANTALLA DEL CHAT -->
-    <div id="pantalla-chat" class="oculto">
-        <h3 id="info-sala">Esperando al otro usuario...</h3>
-        <div id="caja-mensajes"></div>
-        <input type="text" id="texto-mensaje" placeholder="Escribe un mensaje...">
-        <button onclick="enviarTexto()">Enviar</button>
-        <br><br>
-        <label>Enviar Foto/Video: </label>
-        <input type="file" id="archivo" accept="image/*,video/*">
+    <!-- PANTALLA DEL CHAT ESTILO WHATSAPP -->
+    <div id="pantalla-chat" class="chat-container oculto">
+        <div class="chat-header">
+            <div class="chat-header-info">
+                <span id="header-titulo">Sala Privada</span>
+                <small id="header-subtitulo">Esperando conexión...</small>
+            </div>
+            <!-- BOTÓN DE SALIDA -->
+            <button onclick="salirManualmente()" class="btn-salir">Salir y borrar</button>
+        </div>
+        
+        <div id="caja-mensajes" class="chat-messages"></div>
+        
+        <div class="chat-input-area">
+            <!-- BOTÓN CLIP ADJUNTAR -->
+            <label class="btn-adjuntar">
+                <input type="file" id="archivo" accept="image/*,video/*" style="display: none;">
+                <svg viewBox="0 0 24 24"><path d="M16.5 6v11.5c0 2.21-1.79 4-4 4s-4-1.79-4-4V5c0-3.31 2.69-6 6-6s6 2.69 6 6v10c0 4.42-3.58 8-8 8s-8-3.58-8-8V6h2v9c0 3.31 2.69 6 6 6s6-2.69 6-6V5c0-2.21-1.79-4-4-4s-4 1.79-4 4v12.5c0 1.1.9 2 2 2s2-.9 2-2V6h2z"/></svg>
+            </label>
+            
+            <input type="text" id="texto-mensaje" placeholder="Escribe un mensaje secreto...">
+            <button onclick="enviarTexto()">Enviar</button>
+        </div>
     </div>
 
     <script src="/socket.io/socket.io.js"></script>
