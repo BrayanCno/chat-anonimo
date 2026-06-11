@@ -180,25 +180,81 @@ function cerrarJuegos() {
     document.getElementById('juego-gato').classList.add('oculto');
 }
 
-// LÓGICA: VERDAD O RETO
+// LÓGICA: VERDAD O RETO 100% PERSONALIZADO
+let tipoElegidoPorRival = ""; // Guarda temporalmente la elección del otro
+
 function iniciarVerdadOReto() {
     cerrarJuegos();
     document.getElementById('juego-verdad-reto').classList.remove('oculto');
+    document.getElementById('vr-pantalla-seleccion').classList.remove('oculto');
+    document.getElementById('vr-pantalla-redaccion').classList.add('oculto');
     document.getElementById('vr-titulo').innerText = "Verdad o Reto";
-    document.getElementById('vr-texto').innerText = "Elige una opción para enviar un desafío al chat.";
 }
 
-function obtenerDesafio(categoria) {
-    const lista = categoria === 'verdad' ? baseVerdades : baseRetos;
-    const aleatorio = lista[Math.floor(Math.random() * lista.length)];
+// 1. Tú eliges qué quieres jugar y le avisas al otro
+function enviarPeticionVR(categoria) {
+    // Te avisa a ti que estás esperando la respuesta del rival
+    document.getElementById('vr-pantalla-seleccion').classList.add('oculto');
+    document.getElementById('vr-titulo').innerText = "Esperando...";
+    const p = document.createElement('p');
+    p.id = "vr-espera-texto";
+    p.style.fontSize = "14px";
+    p.style.color = "#8696a0";
+    p.innerText = `Le has pedido un ${categoria.toUpperCase()} a tu compañero. Esperando que redacte tu destino...`;
+    document.getElementById('juego-verdad-reto').appendChild(p);
+
+    // Envía la señal al otro usuario en tiempo real
+    socket.emit('accion_minijuego', { 
+        tipo: 'peticion_vr', 
+        categoria: categoria, 
+        solicitante: miApodo 
+    });
+}
+
+// 2. Tu compañero escribe el castigo o la pregunta y te la manda
+function enviarDesafioCreado() {
+    const input = document.getElementById('vr-input-desafio');
+    const textoDesafio = input.value.trim();
+    if (!textoDesafio) return alert("¡Debes escribir una pregunta o un reto!");
+
+    const mensajeFinal = `[🎲 ${tipoElegidoPorRival.toUpperCase()} PERSONALIZADO] ${textoDesafio}`;
+
+    // Envía el mensaje final directamente a la caja de chat de ambos
+    socket.emit('enviar_mensaje', { tipo: 'texto', contenido: mensajeFinal, usuario: `DESAFÍO DE ${miApodo}` });
+    renderizarMensaje('yo', 'JUEGO', 'texto', mensajeFinal);
     
-    const textoFinal = `[🎲 ${categoria.toUpperCase()}] ${aleatorio}`;
-    
-    // Lo envía al chat como si fuera un mensaje del juego
-    socket.emit('enviar_mensaje', { tipo: 'texto', contenido: textoFinal, usuario: `SISTEMA JUEGOS (${miApodo})` });
-    renderizarMensaje('yo', 'JUEGO', 'texto', textoFinal);
+    // Limpia y cierra la ventana del creador
+    input.value = "";
     cerrarJuegos();
 }
+
+// 3. Modificamos el receptor de sockets para que escuche este nuevo flujo
+// Busca la función socket.on('recibir_minijuego', ...) que ya tenías y añade esto dentro:
+socket.on('recibir_minijuego', (data) => {
+    // ... (deja lo del gato como estaba) ...
+    if (data.tipo === 'abrir_gato') { /* ... */ }
+    if (data.tipo === 'jugada_gato') { /* ... */ }
+
+    // NUEVO: Escuchar cuando el rival te pide una Verdad o Reto
+    if (data.tipo === 'peticion_vr') {
+        cerrarJuegos();
+        tipoElegidoPorRival = data.categoria; // Guardamos si eligió verdad o reto
+        
+        // Remueve textos de espera anteriores si existían
+        const esperaPrevio = document.getElementById('vr-espera-texto');
+        if(esperaPrevio) esperaPrevio.remove();
+
+        // Abre la ventana en modo "Redacción"
+        document.getElementById('juego-verdad-reto').classList.remove('oculto');
+        document.getElementById('vr-pantalla-seleccion').classList.add('oculto');
+        document.getElementById('vr-pantalla-redaccion').classList.remove('oculto');
+        
+        document.getElementById('vr-titulo').innerText = "¡Te toca inventar!";
+        document.getElementById('vr-aviso-rival').innerText = `¡${data.solicitante} eligió ${data.categoria.toUpperCase()}!`;
+        document.getElementById('vr-input-desafio').placeholder = data.categoria === 'verdad' ? 'Escribe la pregunta incómoda...' : 'Escribe la acción que debe cumplir...';
+    }
+});
+
 
 // LÓGICA: TRES EN LÍNEA (GATO)
 function iniciarGato() {

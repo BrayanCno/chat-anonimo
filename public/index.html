@@ -152,16 +152,30 @@
     <button class="opcion-juego" onclick="iniciarGato()">❌ Tres en Línea (Gato)</button>
 </div>
 
-<!-- VENTANA VERDAD O RETO -->
+<!-- VENTANA VERDAD O RETO PERSONALIZADO -->
 <div id="juego-verdad-reto" class="ventana-juego oculto">
     <button class="cerrar-juego" onclick="cerrarJuegos()">×</button>
     <h4 id="vr-titulo" style="color: #00a884; margin-bottom: 10px;">Verdad o Reto</h4>
-    <p id="vr-texto" style="font-size: 15px; margin-bottom: 20px; min-height: 50px;">Presiona una opción para desafiar al otro usuario.</p>
-    <div style="display: flex; gap: 10px;">
-        <button onclick="obtenerDesafio('verdad')">Verdad</button>
-        <button onclick="obtenerDesafio('reto')" class="btn-secundario">Reto</button>
+    
+    <!-- ESTADO 1: Elegir opción (Para el que inicia) -->
+    <div id="vr-pantalla-seleccion">
+        <p style="font-size: 14px; margin-bottom: 20px; color: #8696a0;">Elige una opción para que el otro usuario te ponga un desafío personalizado.</p>
+        <div style="display: flex; gap: 10px;">
+            <button onclick="enviarPeticionVR('verdad')">Pedir Verdad</button>
+            <button onclick="enviarPeticionVR('reto')" class="btn-secundario">Pedir Reto</button>
+        </div>
+    </div>
+
+    <!-- ESTADO 2: Redactar desafío (Para el que recibe) -->
+    <div id="vr-pantalla-redaccion" class="oculto">
+        <p id="vr-aviso-rival" style="font-size: 14px; margin-bottom: 15px; font-weight: bold; color: #fff;"></p>
+        <div class="grupo-input" style="margin-bottom: 15px;">
+            <input type="text" id="vr-input-desafio" placeholder="Escribe aquí la pregunta o el reto..." style="width: 100%;">
+        </div>
+        <button onclick="enviarDesafioCreado()">Enviar desafío al chat</button>
     </div>
 </div>
+
 
 <!-- VENTANA TRES EN LÍNEA (GATO) -->
 <div id="juego-gato" class="ventana-juego oculto">
