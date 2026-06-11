@@ -61,6 +61,26 @@
         .btn-adjuntar { background: #2a3942; border-radius: 8px; padding: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 42px; height: 42px; transition: 0.2s; }
         .btn-adjuntar:hover { background: #374955; }
         .btn-adjuntar svg { fill: #8696a0; width: 22px; height: 22px; }
+
+        /* DISEÑO DE MINIJUEGOS */
+        .btn-juegos { background: #2a3942; border-radius: 8px; padding: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 42px; height: 42px; transition: 0.2s; border: none; }
+        .btn-juegos:hover { background: #374955; }
+        .btn-juegos svg { fill: #8696a0; width: 22px; height: 22px; }
+
+        /* Menú flotante de selección */
+        .menu-juegos { position: absolute; bottom: 70px; left: 20px; background: #202c33; border: 1px solid #2a3942; border-radius: 12px; padding: 15px; width: 200px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); display: flex; flex-direction: column; gap: 10px; z-index: 10; }
+        .opcion-juego { background: #2a3942; color: white; border: none; padding: 10px; border-radius: 6px; font-size: 14px; text-align: left; cursor: pointer; transition: 0.2s; }
+        .opcion-juego:hover { background: #00a884; color: #111b21; }
+
+        /* Contenedor flotante del juego activo */
+        .ventana-juego { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #111b21; border: 2px solid #00a884; border-radius: 12px; padding: 20px; width: 90%; max-width: 320px; box-shadow: 0 10px 30px rgba(0,0,0,0.7); text-align: center; z-index: 20; }
+        .cerrar-juego { position: absolute; top: 10px; right: 10px; background: transparent; border: none; color: #8696a0; font-size: 18px; cursor: pointer; width: auto; }
+
+        /* Tablero de Tres en Línea */
+        .tablero-gato { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; margin: 15px auto; max-width: 180px; }
+        .celda-gato { background: #2a3942; border: none; height: 55px; font-size: 24px; font-weight: bold; color: white; border-radius: 6px; cursor: pointer; }
+        .celda-gato:hover { background: #374955; }
+
     </style>
 </head>
 <body>
@@ -115,10 +135,53 @@
                 <svg viewBox="0 0 24 24"><path d="M16.5 6v11.5c0 2.21-1.79 4-4 4s-4-1.79-4-4V5c0-3.31 2.69-6 6-6s6 2.69 6 6v10c0 4.42-3.58 8-8 8s-8-3.58-8-8V6h2v9c0 3.31 2.69 6 6 6s6-2.69 6-6V5c0-2.21-1.79-4-4-4s-4 1.79-4 4v12.5c0 1.1.9 2 2 2s2-.9 2-2V6h2z"/></svg>
             </label>
             
+            <!-- BOTÓN CONTROL DE VIDEOJUEGOS -->
+             <button class="btn-juegos" onclick="alternarMenuJuegos()">
+            <svg viewBox="0 0 24 24"><path d="M21 6H3c-1.1 0-2 .9-2 2v8c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm-10 7H8v3H6v-3H3v-2h3V8h2v3h3v2zm4.5 2c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm3-3c-.83 0-1.5-.67-1.5-1.5S17.67 9 18.5 9s1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"/></svg>
+            </button>
+
+
             <input type="text" id="texto-mensaje" placeholder="Escribe un mensaje secreto..." onkeydown="detectarTeclas(event)">
             <button onclick="enviarTexto()">Enviar</button>
         </div>
     </div>
+
+    <!-- MENÚ FLOTANTE DE JUEGOS -->
+<div id="menu-juegos" class="menu-juegos oculto">
+    <button class="opcion-juego" onclick="iniciarVerdadOReto()">🎲 Verdad o Reto</button>
+    <button class="opcion-juego" onclick="iniciarGato()">❌ Tres en Línea (Gato)</button>
+</div>
+
+<!-- VENTANA VERDAD O RETO -->
+<div id="juego-verdad-reto" class="ventana-juego oculto">
+    <button class="cerrar-juego" onclick="cerrarJuegos()">×</button>
+    <h4 id="vr-titulo" style="color: #00a884; margin-bottom: 10px;">Verdad o Reto</h4>
+    <p id="vr-texto" style="font-size: 15px; margin-bottom: 20px; min-height: 50px;">Presiona una opción para desafiar al otro usuario.</p>
+    <div style="display: flex; gap: 10px;">
+        <button onclick="obtenerDesafio('verdad')">Verdad</button>
+        <button onclick="obtenerDesafio('reto')" class="btn-secundario">Reto</button>
+    </div>
+</div>
+
+<!-- VENTANA TRES EN LÍNEA (GATO) -->
+<div id="juego-gato" class="ventana-juego oculto">
+    <button class="cerrar-juego" onclick="cerrarJuegos()">×</button>
+    <h4 style="color: #00a884; margin-bottom: 5px;">Tres en Línea</h4>
+    <p id="gato-turno" style="font-size: 13px; color: #8696a0;">Esperando juego...</p>
+    <div class="tablero-gato">
+        <button class="celda-gato" onclick="marcarGato(0)"></button>
+        <button class="celda-gato" onclick="marcarGato(1)"></button>
+        <button class="celda-gato" onclick="marcarGato(2)"></button>
+        <button class="celda-gato" onclick="marcarGato(3)"></button>
+        <button class="celda-gato" onclick="marcarGato(4)"></button>
+        <button class="celda-gato" onclick="marcarGato(5)"></button>
+        <button class="celda-gato" onclick="marcarGato(6)"></button>
+        <button class="celda-gato" onclick="marcarGato(7)"></button>
+        <button class="celda-gato" onclick="marcarGato(8)"></button>
+    </div>
+    <button onclick="reiniciarGato()" class="btn-secundario" style="padding: 5px; font-size: 12px;">Reiniciar tablero</button>
+</div>
+
 
     <script src="/socket.io/socket.io.js"></script>
     <script src="index.js"></script>

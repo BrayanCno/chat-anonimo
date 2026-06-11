@@ -37,6 +37,11 @@ io.on('connection', (socket) => {
     socket.to(socket.codigoSala).emit('otro_escribiendo', estaEscribiendo);
   });
 
+    // Lógica para sincronizar las acciones de los minijuegos en tiempo real
+  socket.on('accion_minijuego', (data) => {
+    socket.to(socket.codigoSala).emit('recibir_minijuego', data);
+  });
+
 
   socket.on('disconnect', () => {
     const codigo = socket.codigoSala;

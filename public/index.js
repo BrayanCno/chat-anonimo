@@ -149,3 +149,141 @@ function renderizarMensaje(claseOrigen, usuario, tipo, contenido) {
     
     contenedor.scrollTop = contenedor.scrollHeight;
 }
+// === SISTEMA DE MINIJUEGOS ===
+let miFicha = ""; 
+let turnoGato = "";
+let tablero = Array(9).fill("");
+
+const baseVerdades = [
+    "¿Qué es lo más vergonzoso que has hecho por chat?",
+    "¿Has mentido sobre tu edad o sexo alguna vez en internet?",
+    "¿Cuál es tu mayor secreto que nadie en la vida real conoce?",
+    "¿Qué fue lo primero que pensaste cuando iniciaste este chat?",
+    "¿Cuál ha sido tu peor cita romántica o experiencia conociendo a alguien?"
+];
+
+const baseRetos = [
+    "Envía una foto divertida o extraña usando el botón de archivos ahora mismo.",
+    "Escribe los próximos 3 mensajes usando únicamente emojis.",
+    "Confiésale un secreto muy exagerado e inventado al otro usuario.",
+    "Escribe un poema improvisado de 4 líneas dedicado a este chat anónimo.",
+    "Intenta escribir tu nombre al revés con los ojos cerrados y envíalo."
+];
+
+function alternarMenuJuegos() {
+    document.getElementById('menu-juegos').classList.toggle('oculto');
+}
+
+function cerrarJuegos() {
+    document.getElementById('menu-juegos').classList.add('oculto');
+    document.getElementById('juego-verdad-reto').classList.add('oculto');
+    document.getElementById('juego-gato').classList.add('oculto');
+}
+
+// LÓGICA: VERDAD O RETO
+function iniciarVerdadOReto() {
+    cerrarJuegos();
+    document.getElementById('juego-verdad-reto').classList.remove('oculto');
+    document.getElementById('vr-titulo').innerText = "Verdad o Reto";
+    document.getElementById('vr-texto').innerText = "Elige una opción para enviar un desafío al chat.";
+}
+
+function obtenerDesafio(categoria) {
+    const lista = categoria === 'verdad' ? baseVerdades : baseRetos;
+    const aleatorio = lista[Math.floor(Math.random() * lista.length)];
+    
+    const textoFinal = `[🎲 ${categoria.toUpperCase()}] ${aleatorio}`;
+    
+    // Lo envía al chat como si fuera un mensaje del juego
+    socket.emit('enviar_mensaje', { tipo: 'texto', contenido: textoFinal, usuario: `SISTEMA JUEGOS (${miApodo})` });
+    renderizarMensaje('yo', 'JUEGO', 'texto', textoFinal);
+    cerrarJuegos();
+}
+
+// LÓGICA: TRES EN LÍNEA (GATO)
+function iniciarGato() {
+    cerrarJuegos();
+    miFicha = "X"; // El que abre el juego inicia con X
+    turnoGato = "X";
+    tablero = Array(9).fill("");
+    limpiarInterfazGato();
+    
+    document.getElementById('juego-gato').classList.remove('oculto');
+    document.getElementById('gato-turno').innerText = "Tu turno (X)";
+    
+    // Le avisa al otro usuario que abra su tablero
+    socket.emit('accion_minijuego', { tipo: 'abrir_gato', tablero, turnoGato });
+}
+
+function marcarGato(posicion) {
+    if (turnoGato !== miFicha || tablero[posicion] !== "") return;
+    
+    tablero[posicion] = miFicha;
+    turnoGato = miFicha === "X" ? "O" : "X"; 
+    
+    actualizarTableroVisual();
+    verificarGanadorGato();
+    
+    // Sincronizar jugada con el rival
+    socket.emit('accion_minijuego', { tipo: 'jugada_gato', tablero, turnoGato });
+}
+
+function actualizarTableroVisual() {
+    const celdas = document.querySelectorAll('.celda-gato');
+    celdas.forEach((celda, i) => {
+        celda.innerText = tablero[i];
+    });
+    
+    const indicador = document.getElementById('gato-turno');
+    if (turnoGato === miFicha) {
+        indicador.innerText = `Tu turno (${miFicha})`;
+    } else {
+        indicador.innerText = "Turno del rival...";
+    }
+}
+
+function limpiarInterfazGato() {
+    document.querySelectorAll('.celda-gato').forEach(celda => celda.innerText = "");
+}
+
+function reiniciarGato() {
+    iniciarGato();
+}
+
+function verificarGanadorGato() {
+    const combinaciones = [, [3,4,5], [6,7,8], // Horizontales, [1,4,7], [2,5,8], // Verticales, [2,4,6]           // Diagonales
+    ];
+    
+    for (let combo of combinaciones) {
+        const [a, b, c] = combo;
+        if (tablero[a] && tablero[a] === tablero[b] && tablero[a] === tablero[c]) {
+            document.getElementById('gato-turno').innerText = `¡Ganador: ${tablero[a]}!`;
+            turnoGato = "FIN";
+            return;
+        }
+    }
+    
+    if (!tablero.includes("")) {
+        document.getElementById('gato-turno').innerText = "¡Empate!";
+        turnoGato = "FIN";
+    }
+}
+
+// ESCUCHAR SEÑALES DE JUEGO DEL RIVAL
+socket.on('recibir_minijuego', (data) => {
+    if (data.tipo === 'abrir_gato') {
+        miFicha = "O"; // Al invitado le toca ser O
+        tablero = data.tablero;
+        turnoGato = data.turnoGato;
+        limpiarInterfazGato();
+        document.getElementById('juego-gato').classList.remove('oculto');
+        actualizarTableroVisual();
+    }
+    
+    if (data.tipo === 'jugada_gato') {
+        tablero = data.tablero;
+        turnoGato = data.turnoGato;
+        actualizarTableroVisual();
+        verificarGanadorGato();
+    }
+});
