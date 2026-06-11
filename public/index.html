@@ -150,6 +150,7 @@
 <div id="menu-juegos" class="menu-juegos oculto">
     <button class="opcion-juego" onclick="iniciarVerdadOReto()">🎲 Verdad o Reto</button>
     <button class="opcion-juego" onclick="iniciarGato()">❌ Tres en Línea (Gato)</button>
+    <button class="opcion-juego" onclick="iniciarDados()">🎲 Dados Virtuales</button>
 </div>
 
 <!-- VENTANA VERDAD O RETO PERSONALIZADO -->
@@ -194,6 +195,15 @@
         <button class="celda-gato" onclick="marcarGato(8)"></button>
     </div>
     <button onclick="reiniciarGato()" class="btn-secundario" style="padding: 5px; font-size: 12px;">Reiniciar tablero</button>
+</div>
+
+<!-- VENTANA DE DADOS VIRTUALES -->
+<div id="juego-dados" class="ventana-juego oculto">
+    <button class="cerrar-juego" onclick="cerrarJuegos()">×</button>
+    <h4 style="color: #00a884; margin-bottom: 10px;">Dados Virtuales 🎲</h4>
+    <p id="dados-texto" style="font-size: 14px; margin-bottom: 20px; color: #8696a0;">Lanza el dado para ver quién saca el número más alto.</p>
+    <div id="dado-resultado" style="font-size: 48px; margin-bottom: 15px;">🎲</div>
+    <button onclick="lanzarDado()">Lanzar Dado</button>
 </div>
 
 

@@ -2,10 +2,15 @@ const socket = io();
 let miApodo = "";
 let escribiendoTimeout;
 
-// 1. CONFIRMACIÓN DE SALIDA (Si intenta cerrar la pestaña o el navegador)
+// CONTROL DE ESTADO DEL JUEGO DEL GATO
+let miFicha = ""; // "X" u "O"
+let turnoGato = ""; // De quién es el turno actualmente
+let tablero = Array(9).fill("");
+let juegoActivo = false;
+let tipoElegidoPorRival = ""; 
+
+// 1. CONFIRMACIÓN DE SALIDA DE LA PÁGINA (Navegador)
 window.addEventListener('beforeunload', (e) => {
-    // Nota: Los navegadores modernos muestran su propio mensaje genérico, 
-    // pero activar esto asegura que se le pregunte al usuario antes de perder el chat.
     e.preventDefault();
     e.returnValue = '';
 });
@@ -49,49 +54,262 @@ function enviarTexto() {
     const txt = input.value.trim();
     if(!txt) return;
     
-    // Avisar al otro que ya dejamos de escribir al enviar el mensaje
     socket.emit('usuario_escribiendo', false);
-    
     socket.emit('enviar_mensaje', { tipo: 'texto', contenido: txt, usuario: miApodo });
     renderizarMensaje('yo', miApodo, 'texto', txt);
     input.value = "";
 }
 
-// 3. ENVIAR AL PRESIONAR LA TECLA ENTER & DETECTAR QUE ESCRIBE
 function detectarTeclas(event) {
-    // Si presiona Enter, envía el mensaje
     if (event.key === 'Enter') {
         enviarTexto();
         return;
     }
-
-    // Lógica para avisar "Escribiendo..."
     socket.emit('usuario_escribiendo', true);
-    
-    // Borrar el temporizador anterior para que no parpadee
     clearTimeout(escribiendoTimeout);
-    
-    // Si el usuario pasa 1.5 segundos sin presionar una tecla, asumimos que paró de escribir
     escribiendoTimeout = setTimeout(() => {
         socket.emit('usuario_escribiendo', false);
     }, 1500);
 }
 
-// 2. MOSTRAR CUANDO EL OTRO USUARIO ESTÁ ESCRIBIENDO
 socket.on('otro_escribiendo', (estaEscribiendo) => {
     const indicador = document.getElementById('indicador-escribiendo');
     const nombreCompañero = document.getElementById('header-titulo').innerText;
+    indicador.innerText = estaEscribiendo ? `${nombreCompañero} está escribiendo...` : "";
+});
+
+// CONTROL DE MENÚ FLOTANTE Y PARPADEO NOTIFICACIÓN
+function alternarMenuJuegos() {
+    const menu = document.getElementById('menu-juegos');
+    menu.classList.toggle('oculto');
+    // Detener parpadeo si el usuario abre el menú manualmente
+    document.querySelector('.btn-juegos').style.animation = "";
+}
+
+function notificarActividadJuego() {
+    const menu = document.getElementById('menu-juegos');
+    // Si el menú está cerrado, hace parpadear el botón del control 
+    if (menu.classList.contains('oculto')) {
+        const btn = document.querySelector('.btn-juegos');
+        btn.style.animation = "parpadeoAlerta 0.8s infinite alternate";
+        
+        // Inyectamos dinámicamente la animación si no existe
+        if (!document.getElementById('style-parpadeo')) {
+            const style = document.createElement('style');
+            style.id = 'style-parpadeo';
+            style.innerHTML = `@keyframes parpadeoAlerta { from { background: #2a3942; } to { background: #00a884; } }`;
+            document.head.appendChild(style);
+        }
+    }
+}
+
+function cerrarJuegos() {
+    // Si hay un juego de Gato activo, preguntar antes de cerrar
+    if (juegoActivo && !document.getElementById('juego-gato').classList.contains('oculto')) {
+        if (!confirm("¿Estás seguro de que quieres salir del juego actual? Perderás tu progreso.")) {
+            return; 
+        }
+        juegoActivo = false;
+        socket.emit('accion_minijuego', { tipo: 'abandono_gato', usuario: miApodo });
+    }
     
-    if (estaEscribiendo) {
-        indicador.innerText = `${nombreCompañero} está escribiendo...`;
+    document.getElementById('menu-juegos').classList.add('oculto');
+    document.getElementById('juego-verdad-reto').classList.add('oculto');
+    document.getElementById('juego-gato').classList.add('oculto');
+    document.getElementById('juego-dados').classList.add('oculto');
+    
+    const textoEspera = document.getElementById('vr-espera-texto');
+    if (textoEspera) textoEspera.remove();
+}
+
+// LÓGICA: VERDAD O RETO
+function iniciarVerdadOReto() {
+    alternarMenuJuegos();
+    document.getElementById('juego-verdad-reto').classList.remove('oculto');
+    document.getElementById('vr-pantalla-seleccion').classList.remove('oculto');
+    document.getElementById('vr-pantalla-redaccion').classList.add('oculto');
+    document.getElementById('vr-titulo').innerText = "Verdad o Reto";
+}
+
+function enviarPeticionVR(categoria) {
+    document.getElementById('vr-pantalla-seleccion').classList.add('oculto');
+    document.getElementById('vr-titulo').innerText = "Esperando...";
+    
+    const p = document.createElement('p');
+    p.id = "vr-espera-texto";
+    p.style.fontSize = "14px";
+    p.style.color = "#8696a0";
+    p.innerText = `Le has pedido un ${categoria.toUpperCase()} a tu compañero. Esperando redacción...`;
+    document.getElementById('juego-verdad-reto').appendChild(p);
+
+    socket.emit('accion_minijuego', { tipo: 'peticion_vr', categoria: categoria, solicitante: miApodo });
+}
+
+function enviarDesafioCreado() {
+    const input = document.getElementById('vr-input-desafio');
+    const textoDesafio = input.value.trim();
+    if (!textoDesafio) return alert("¡Debes escribir una pregunta o un reto!");
+
+    const mensajeFinal = `[🎲 ${tipoElegidoPorRival.toUpperCase()} PERSONALIZADO] ${textoDesafio}`;
+    socket.emit('enviar_mensaje', { tipo: 'texto', contenido: mensajeFinal, usuario: `DESAFÍO DE ${miApodo}` });
+    renderizarMensaje('yo', 'JUEGO', 'texto', mensajeFinal);
+    
+    input.value = "";
+    document.getElementById('juego-verdad-reto').classList.add('oculto');
+}
+
+// LÓGICA: DADOS VIRTUALES
+function iniciarDados() {
+    alternarMenuJuegos();
+    document.getElementById('juego-dados').classList.remove('oculto');
+    document.getElementById('dado-resultado').innerText = "🎲";
+    document.getElementById('dados-texto').innerText = "Lanza el dado para competir con tu compañero.";
+}
+
+function lanzarDado() {
+    const numero = Math.floor(Math.random() * 6) + 1;
+    const carasDados = ["", "⚀", "⚁", "⚂", "⚃", "⚄", "⚅"];
+    
+    document.getElementById('dado-resultado').innerText = carasDados[numero];
+    document.getElementById('dados-texto').innerText = `¡Sacaste un ${numero}!`;
+    
+    const mensajeDado = `[🎲 DADOS] Saqué un número ${numero} en el dado virtual.`;
+    socket.emit('enviar_mensaje', { tipo: 'texto', contenido: mensajeDado, usuario: miApodo });
+    renderizarMensaje('yo', miApodo, 'texto', mensajeDado);
+}
+
+// LÓGICA REESCRITA: TRES EN LÍNEA (GATO)
+function iniciarGato() {
+    alternarMenuJuegos();
+    miFicha = "X"; 
+    turnoGato = "X";
+    tablero = Array(9).fill("");
+    juegoActivo = true;
+    
+    limpiarInterfazGato();
+    document.getElementById('juego-gato').classList.remove('oculto');
+    document.getElementById('gato-turno').innerText = "Tu turno (X)";
+    
+    socket.emit('accion_minijuego', { tipo: 'abrir_gato', tablero, turnoGato });
+}
+
+function marcarGato(posicion) {
+    // Seguridad: No permitir marcar si no es tu turno, o la casilla está ocupada, o el juego terminó
+    if (!juegoActivo || turnoGato !== miFicha || tablero[posicion] !== "") return;
+    
+    tablero[posicion] = miFicha;
+    turnoGato = miFicha === "X" ? "O" : "X"; 
+    
+    actualizarTableroVisual();
+    verificarGanadorGato();
+    
+    // SINCRONIZACIÓN INMEDIATA: Envía el tablero completo y el próximo turno al rival
+    socket.emit('accion_minijuego', { tipo: 'jugada_gato', tablero, turnoGato });
+}
+
+function actualizarTableroVisual() {
+    const celdas = document.querySelectorAll('.celda-gato');
+    celdas.forEach((celda, i) => {
+        celda.innerText = tablero[i];
+        // Estilo rápido para diferenciar X de O
+        if(tablero[i] === "X") celda.style.color = "#00a884";
+        if(tablero[i] === "O") celda.style.color = "#ea0038";
+    });
+    
+    const indicador = document.getElementById('gato-turno');
+    if (turnoGato === "FIN") return;
+    
+    if (turnoGato === miFicha) {
+        indicador.innerText = `Tu turno (${miFicha})`;
     } else {
-        indicador.innerText = ""; // Limpiar el texto si dejó de escribir
+        indicador.innerText = "Esperando la jugada del rival...";
+    }
+}
+
+function limpiarInterfazGato() {
+    const celdas = document.querySelectorAll('.celda-gato');
+    celdas.forEach(celda => {
+        celda.innerText = "";
+        celda.style.color = "white";
+    });
+}
+
+function reiniciarGato() {
+    if (confirm("¿Quieres reiniciar el tablero? Se vaciarán las casillas.")) {
+        iniciarGato();
+    }
+}
+
+function verificarGanadorGato() {
+    const combinaciones = [, [3, 4, 5], [6, 7, 8], // Horizontales, [1, 4, 7], [2, 5, 8], // Verticales, [2, 4, 6]             // Diagonales
+    ];
+    
+    for (let combo of combinaciones) {
+        const [a, b, c] = combo;
+        if (tablero[a] && tablero[a] === tablero[b] && tablero[a] === tablero[c]) {
+            const ganador = tablero[a];
+            document.getElementById('gato-turno').innerText = ganador === miFicha ? "¡Ganaste la partida! 🎉" : "El rival ha ganado 😢";
+            turnoGato = "FIN";
+            juegoActivo = false;
+            return;
+        }
+    }
+    
+    if (!tablero.includes("")) {
+        document.getElementById('gato-turno').innerText = "¡Empate técnico!";
+        turnoGato = "FIN";
+        juegoActivo = false;
+}}
+
+// RECEPCIÓN DE ACCIONES DE MINIJUEGOS EN TIEMPO REAL
+socket.on('recibir_minijuego', (data) => {
+    notificarActividadJuego(); // Activa parpadeo si el menú está cerrado
+
+    // Sincronizar apertura del Gato (Jugador 2)
+    if (data.tipo === 'abrir_gato') {
+        miFicha = "O";
+        tablero = data.tablero;
+        turnoGato = data.turnoGato;
+        juegoActivo = true;
+        limpiarInterfazGato();
+        document.getElementById('juego-gato').classList.remove('oculto');
+        actualizarTableroVisual();
+    }
+
+    // Sincronizar movimientos del Gato en tiempo real
+    if (data.tipo === 'jugada_gato') {
+        tablero = data.tablero;
+        turnoGato = data.turnoGato;
+        actualizarTableroVisual();
+        verificarGanadorGato();
+    }
+
+    // Informar abandono de partida
+    if (data.tipo === 'abandono_gato') {
+        alert(`El usuario ${data.usuario} ha abandonado la partida de Gato.`);
+        juegoActivo = false;
+        document.getElementById('juego-gato').classList.add('oculto');
+    }
+
+    // Sincronizar petición de Verdad o Reto
+    if (data.tipo === 'peticion_vr') {
+        tipoElegidoPorRival = data.categoria;
+        const esperaPrevio = document.getElementById('vr-espera-texto');
+        if(esperaPrevio) esperaPrevio.remove();
+
+        document.getElementById('juego-verdad-reto').classList.remove('oculto');
+        document.getElementById('vr-pantalla-seleccion').classList.add('oculto');
+        document.getElementById('vr-pantalla-redaccion').classList.remove('oculto');
+        
+        document.getElementById('vr-titulo').innerText = "¡Te toca inventar!";
+        document.getElementById('vr-aviso-rival').innerText = `¡${data.solicitante} pide ${data.categoria.toUpperCase()}!`;
+        document.getElementById('vr-input-desafio').placeholder = data.categoria === 'verdad' ? 'Escribe la pregunta...' : 'Escribe el reto...';
     }
 });
 
-// Control de envío de archivos (Fotos y Videos)
+// MULTIMEDIA Y CIERRES GENERALES
 document.getElementById('archivo').addEventListener('change', (e) => {
-    const file = e.target.files;
+    const file = e.target.files[0];
     if (!file) return;
     
     const reader = new FileReader();
@@ -107,23 +325,21 @@ socket.on('recibir_mensaje', (data) => {
     renderizarMensaje('otro', data.usuario, data.tipo, data.contenido);
 });
 
-// Botón de salir manual con confirmación segura
 function salirManualmente() {
     if(confirm("¿Estás completamente seguro de que quieres salir? Todo el historial del chat se borrará de inmediato y de forma permanente.")) {
-        window.location.reload(); 
+        window.location.reload();
     }
 }
 
 socket.on('chat_finalizado', () => {
     alert("El otro usuario abandonó el chat o cerró la pestaña. Historial destruido.");
-    window.location.reload(); 
+    window.location.reload();
 });
 
 socket.on('error_ingreso', (msg) => alert(msg));
 
 function renderizarMensaje(claseOrigen, usuario, tipo, contenido) {
     const contenedor = document.getElementById('caja-mensajes');
-    
     const wrapper = document.createElement('div');
     wrapper.className = `msg-wrapper ${claseOrigen}`;
     
@@ -146,200 +362,5 @@ function renderizarMensaje(claseOrigen, usuario, tipo, contenido) {
     
     wrapper.appendChild(bubble);
     contenedor.appendChild(wrapper);
-    
     contenedor.scrollTop = contenedor.scrollHeight;
 }
-// === SISTEMA DE MINIJUEGOS ===
-let miFicha = ""; 
-let turnoGato = "";
-let tablero = Array(9).fill("");
-
-const baseVerdades = [
-    "¿Qué es lo más vergonzoso que has hecho por chat?",
-    "¿Has mentido sobre tu edad o sexo alguna vez en internet?",
-    "¿Cuál es tu mayor secreto que nadie en la vida real conoce?",
-    "¿Qué fue lo primero que pensaste cuando iniciaste este chat?",
-    "¿Cuál ha sido tu peor cita romántica o experiencia conociendo a alguien?"
-];
-
-const baseRetos = [
-    "Envía una foto divertida o extraña usando el botón de archivos ahora mismo.",
-    "Escribe los próximos 3 mensajes usando únicamente emojis.",
-    "Confiésale un secreto muy exagerado e inventado al otro usuario.",
-    "Escribe un poema improvisado de 4 líneas dedicado a este chat anónimo.",
-    "Intenta escribir tu nombre al revés con los ojos cerrados y envíalo."
-];
-
-function alternarMenuJuegos() {
-    document.getElementById('menu-juegos').classList.toggle('oculto');
-}
-
-function cerrarJuegos() {
-    document.getElementById('menu-juegos').classList.add('oculto');
-    document.getElementById('juego-verdad-reto').classList.add('oculto');
-    document.getElementById('juego-gato').classList.add('oculto');
-}
-
-// LÓGICA: VERDAD O RETO 100% PERSONALIZADO
-let tipoElegidoPorRival = ""; // Guarda temporalmente la elección del otro
-
-function iniciarVerdadOReto() {
-    cerrarJuegos();
-    document.getElementById('juego-verdad-reto').classList.remove('oculto');
-    document.getElementById('vr-pantalla-seleccion').classList.remove('oculto');
-    document.getElementById('vr-pantalla-redaccion').classList.add('oculto');
-    document.getElementById('vr-titulo').innerText = "Verdad o Reto";
-}
-
-// 1. Tú eliges qué quieres jugar y le avisas al otro
-function enviarPeticionVR(categoria) {
-    // Te avisa a ti que estás esperando la respuesta del rival
-    document.getElementById('vr-pantalla-seleccion').classList.add('oculto');
-    document.getElementById('vr-titulo').innerText = "Esperando...";
-    const p = document.createElement('p');
-    p.id = "vr-espera-texto";
-    p.style.fontSize = "14px";
-    p.style.color = "#8696a0";
-    p.innerText = `Le has pedido un ${categoria.toUpperCase()} a tu compañero. Esperando que redacte tu destino...`;
-    document.getElementById('juego-verdad-reto').appendChild(p);
-
-    // Envía la señal al otro usuario en tiempo real
-    socket.emit('accion_minijuego', { 
-        tipo: 'peticion_vr', 
-        categoria: categoria, 
-        solicitante: miApodo 
-    });
-}
-
-// 2. Tu compañero escribe el castigo o la pregunta y te la manda
-function enviarDesafioCreado() {
-    const input = document.getElementById('vr-input-desafio');
-    const textoDesafio = input.value.trim();
-    if (!textoDesafio) return alert("¡Debes escribir una pregunta o un reto!");
-
-    const mensajeFinal = `[🎲 ${tipoElegidoPorRival.toUpperCase()} PERSONALIZADO] ${textoDesafio}`;
-
-    // Envía el mensaje final directamente a la caja de chat de ambos
-    socket.emit('enviar_mensaje', { tipo: 'texto', contenido: mensajeFinal, usuario: `DESAFÍO DE ${miApodo}` });
-    renderizarMensaje('yo', 'JUEGO', 'texto', mensajeFinal);
-    
-    // Limpia y cierra la ventana del creador
-    input.value = "";
-    cerrarJuegos();
-}
-
-// 3. Modificamos el receptor de sockets para que escuche este nuevo flujo
-// Busca la función socket.on('recibir_minijuego', ...) que ya tenías y añade esto dentro:
-socket.on('recibir_minijuego', (data) => {
-    // ... (deja lo del gato como estaba) ...
-    if (data.tipo === 'abrir_gato') { /* ... */ }
-    if (data.tipo === 'jugada_gato') { /* ... */ }
-
-    // NUEVO: Escuchar cuando el rival te pide una Verdad o Reto
-    if (data.tipo === 'peticion_vr') {
-        cerrarJuegos();
-        tipoElegidoPorRival = data.categoria; // Guardamos si eligió verdad o reto
-        
-        // Remueve textos de espera anteriores si existían
-        const esperaPrevio = document.getElementById('vr-espera-texto');
-        if(esperaPrevio) esperaPrevio.remove();
-
-        // Abre la ventana en modo "Redacción"
-        document.getElementById('juego-verdad-reto').classList.remove('oculto');
-        document.getElementById('vr-pantalla-seleccion').classList.add('oculto');
-        document.getElementById('vr-pantalla-redaccion').classList.remove('oculto');
-        
-        document.getElementById('vr-titulo').innerText = "¡Te toca inventar!";
-        document.getElementById('vr-aviso-rival').innerText = `¡${data.solicitante} eligió ${data.categoria.toUpperCase()}!`;
-        document.getElementById('vr-input-desafio').placeholder = data.categoria === 'verdad' ? 'Escribe la pregunta incómoda...' : 'Escribe la acción que debe cumplir...';
-    }
-});
-
-
-// LÓGICA: TRES EN LÍNEA (GATO)
-function iniciarGato() {
-    cerrarJuegos();
-    miFicha = "X"; // El que abre el juego inicia con X
-    turnoGato = "X";
-    tablero = Array(9).fill("");
-    limpiarInterfazGato();
-    
-    document.getElementById('juego-gato').classList.remove('oculto');
-    document.getElementById('gato-turno').innerText = "Tu turno (X)";
-    
-    // Le avisa al otro usuario que abra su tablero
-    socket.emit('accion_minijuego', { tipo: 'abrir_gato', tablero, turnoGato });
-}
-
-function marcarGato(posicion) {
-    if (turnoGato !== miFicha || tablero[posicion] !== "") return;
-    
-    tablero[posicion] = miFicha;
-    turnoGato = miFicha === "X" ? "O" : "X"; 
-    
-    actualizarTableroVisual();
-    verificarGanadorGato();
-    
-    // Sincronizar jugada con el rival
-    socket.emit('accion_minijuego', { tipo: 'jugada_gato', tablero, turnoGato });
-}
-
-function actualizarTableroVisual() {
-    const celdas = document.querySelectorAll('.celda-gato');
-    celdas.forEach((celda, i) => {
-        celda.innerText = tablero[i];
-    });
-    
-    const indicador = document.getElementById('gato-turno');
-    if (turnoGato === miFicha) {
-        indicador.innerText = `Tu turno (${miFicha})`;
-    } else {
-        indicador.innerText = "Turno del rival...";
-    }
-}
-
-function limpiarInterfazGato() {
-    document.querySelectorAll('.celda-gato').forEach(celda => celda.innerText = "");
-}
-
-function reiniciarGato() {
-    iniciarGato();
-}
-
-function verificarGanadorGato() {
-    const combinaciones = [, [3,4,5], [6,7,8], // Horizontales, [1,4,7], [2,5,8], // Verticales, [2,4,6]           // Diagonales
-    ];
-    
-    for (let combo of combinaciones) {
-        const [a, b, c] = combo;
-        if (tablero[a] && tablero[a] === tablero[b] && tablero[a] === tablero[c]) {
-            document.getElementById('gato-turno').innerText = `¡Ganador: ${tablero[a]}!`;
-            turnoGato = "FIN";
-            return;
-        }
-    }
-    
-    if (!tablero.includes("")) {
-        document.getElementById('gato-turno').innerText = "¡Empate!";
-        turnoGato = "FIN";
-    }
-}
-
-// ESCUCHAR SEÑALES DE JUEGO DEL RIVAL
-socket.on('recibir_minijuego', (data) => {
-    if (data.tipo === 'abrir_gato') {
-        miFicha = "O"; // Al invitado le toca ser O
-        tablero = data.tablero;
-        turnoGato = data.turnoGato;
-        limpiarInterfazGato();
-        document.getElementById('juego-gato').classList.remove('oculto');
-        actualizarTableroVisual();
-    }
-    
-    if (data.tipo === 'jugada_gato') {
-        tablero = data.tablero;
-        turnoGato = data.turnoGato;
-        actualizarTableroVisual();
-        verificarGanadorGato();
-    }
-});
