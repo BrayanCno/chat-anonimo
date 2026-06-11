@@ -32,6 +32,12 @@ io.on('connection', (socket) => {
     socket.to(socket.codigoSala).emit('recibir_mensaje', data);
   });
 
+    // Detectar cuando el usuario está escribiendo
+  socket.on('usuario_escribiendo', (estaEscribiendo) => {
+    socket.to(socket.codigoSala).emit('otro_escribiendo', estaEscribiendo);
+  });
+
+
   socket.on('disconnect', () => {
     const codigo = socket.codigoSala;
     if (codigo && salas[codigo]) {

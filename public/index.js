@@ -1,5 +1,14 @@
 const socket = io();
 let miApodo = "";
+let escribiendoTimeout;
+
+// 1. CONFIRMACIÓN DE SALIDA (Si intenta cerrar la pestaña o el navegador)
+window.addEventListener('beforeunload', (e) => {
+    // Nota: Los navegadores modernos muestran su propio mensaje genérico, 
+    // pero activar esto asegura que se le pregunte al usuario antes de perder el chat.
+    e.preventDefault();
+    e.returnValue = '';
+});
 
 function obtenerDatos() {
     miApodo = document.getElementById('apodo').value.trim() || "Anónimo";
@@ -11,8 +20,7 @@ function obtenerDatos() {
 }
 
 function crearSala() {
-    const datos = obtenerDatos();
-    socket.emit('crear_sala', datos);
+    socket.emit('crear_sala', obtenerDatos());
 }
 
 function unirseSala() {
@@ -31,7 +39,7 @@ socket.on('sala_creada', (codigo) => {
 socket.on('chat_iniciado', (usuarios) => {
     document.getElementById('pantalla-login').classList.add('oculto');
     document.getElementById('pantalla-chat').classList.remove('oculto');
-    const compañero = usuarios.find(u => u.apodo !== miApodo) || usuarios[0];
+    const compañero = usuarios.find(u => u.apodo !== miApodo) || usuarios;
     document.getElementById('header-titulo').innerText = compañero.apodo;
     document.getElementById('header-subtitulo').innerText = `${compañero.edad} años • ${compañero.sexo}`;
 });
@@ -41,14 +49,49 @@ function enviarTexto() {
     const txt = input.value.trim();
     if(!txt) return;
     
+    // Avisar al otro que ya dejamos de escribir al enviar el mensaje
+    socket.emit('usuario_escribiendo', false);
+    
     socket.emit('enviar_mensaje', { tipo: 'texto', contenido: txt, usuario: miApodo });
     renderizarMensaje('yo', miApodo, 'texto', txt);
     input.value = "";
 }
 
+// 3. ENVIAR AL PRESIONAR LA TECLA ENTER & DETECTAR QUE ESCRIBE
+function detectarTeclas(event) {
+    // Si presiona Enter, envía el mensaje
+    if (event.key === 'Enter') {
+        enviarTexto();
+        return;
+    }
+
+    // Lógica para avisar "Escribiendo..."
+    socket.emit('usuario_escribiendo', true);
+    
+    // Borrar el temporizador anterior para que no parpadee
+    clearTimeout(escribiendoTimeout);
+    
+    // Si el usuario pasa 1.5 segundos sin presionar una tecla, asumimos que paró de escribir
+    escribiendoTimeout = setTimeout(() => {
+        socket.emit('usuario_escribiendo', false);
+    }, 1500);
+}
+
+// 2. MOSTRAR CUANDO EL OTRO USUARIO ESTÁ ESCRIBIENDO
+socket.on('otro_escribiendo', (estaEscribiendo) => {
+    const indicador = document.getElementById('indicador-escribiendo');
+    const nombreCompañero = document.getElementById('header-titulo').innerText;
+    
+    if (estaEscribiendo) {
+        indicador.innerText = `${nombreCompañero} está escribiendo...`;
+    } else {
+        indicador.innerText = ""; // Limpiar el texto si dejó de escribir
+    }
+});
+
 // Control de envío de archivos (Fotos y Videos)
 document.getElementById('archivo').addEventListener('change', (e) => {
-    const file = e.target.files[0];
+    const file = e.target.files;
     if (!file) return;
     
     const reader = new FileReader();
@@ -64,9 +107,9 @@ socket.on('recibir_mensaje', (data) => {
     renderizarMensaje('otro', data.usuario, data.tipo, data.contenido);
 });
 
-// Función para salir manualmente
+// Botón de salir manual con confirmación segura
 function salirManualmente() {
-    if(confirm("¿Seguro que quieres salir? Se destruirá todo el historial de inmediato.")) {
+    if(confirm("¿Estás completamente seguro de que quieres salir? Todo el historial del chat se borrará de inmediato y de forma permanente.")) {
         window.location.reload(); 
     }
 }
@@ -78,7 +121,6 @@ socket.on('chat_finalizado', () => {
 
 socket.on('error_ingreso', (msg) => alert(msg));
 
-// Generador estructurado de burbujas tipo servicio de mensajería
 function renderizarMensaje(claseOrigen, usuario, tipo, contenido) {
     const contenedor = document.getElementById('caja-mensajes');
     
@@ -105,6 +147,5 @@ function renderizarMensaje(claseOrigen, usuario, tipo, contenido) {
     wrapper.appendChild(bubble);
     contenedor.appendChild(wrapper);
     
-    // Auto-scroll hacia abajo al recibir mensajes
     contenedor.scrollTop = contenedor.scrollHeight;
 }
