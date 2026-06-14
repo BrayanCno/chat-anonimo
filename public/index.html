@@ -151,6 +151,8 @@
     <button class="opcion-juego" onclick="iniciarVerdadOReto()">🎲 Verdad o Reto</button>
     <button class="opcion-juego" onclick="iniciarGato()">❌ Tres en Línea (Gato)</button>
     <button class="opcion-juego" onclick="iniciarDados()">🎲 Dados Virtuales</button>
+    <button class="opcion-juego" onclick="iniciarPPT()">✊ Piedra, Papel, Tijera</button>
+
 </div>
 
 <!-- VENTANA VERDAD O RETO PERSONALIZADO -->
@@ -204,6 +206,22 @@
     <p id="dados-texto" style="font-size: 14px; margin-bottom: 20px; color: #8696a0;">Lanza el dado para ver quién saca el número más alto.</p>
     <div id="dado-resultado" style="font-size: 48px; margin-bottom: 15px;">🎲</div>
     <button onclick="lanzarDado()">Lanzar Dado</button>
+</div>
+
+<!-- VENTANA PIEDRA, PAPEL O TIJERA -->
+<div id="juego-ppt" class="ventana-juego oculto">
+    <button class="cerrar-juego" onclick="cerrarJuegos()">×</button>
+    <h4 style="color: #00a884; margin-bottom: 5px;">Piedra, Papel o Tijera</h4>
+    <p id="ppt-estado" style="font-size: 13px; color: #8696a0; margin-bottom: 15px;">Elige tu jugada en secreto...</p>
+    
+    <!-- Contenedor de opciones visuales -->
+    <div style="display: flex; justify-content: center; gap: 10px; margin-bottom: 15px;">
+        <button class="celda-gato" onclick="elegirPPT('piedra')" id="btn-ppt-piedra" style="font-size: 28px; width: 65px; height: 65px;">✊</button>
+        <button class="celda-gato" onclick="elegirPPT('papel')" id="btn-ppt-papel" style="font-size: 28px; width: 65px; height: 65px;">✋</button>
+        <button class="celda-gato" onclick="elegirPPT('tijera')" id="btn-ppt-tijera" style="font-size: 28px; width: 65px; height: 65px;">✌️</button>
+    </div>
+    
+    <div id="ppt-resultado" style="font-size: 14px; font-weight: bold; color: #fff; min-height: 40px; margin-top: 10px;"></div>
 </div>
 
 
