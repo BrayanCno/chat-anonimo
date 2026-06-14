@@ -194,7 +194,6 @@ function iniciarGato() {
 }
 
 function marcarGato(posicion) {
-    // Seguridad: No permitir marcar si no es tu turno, o la casilla está ocupada, o el juego terminó
     if (!juegoActivo || turnoGato !== miFicha || tablero[posicion] !== "") return;
     
     tablero[posicion] = miFicha;
@@ -203,8 +202,8 @@ function marcarGato(posicion) {
     actualizarTableroVisual();
     verificarGanadorGato();
     
-    // SINCRONIZACIÓN INMEDIATA: Envía el tablero completo y el próximo turno al rival
-    socket.emit('accion_minijuego', { tipo: 'jugada_gato', tablero, turnoGato });
+    // Envía la jugada al rival
+    socket.emit('accion_minijuego', { tipo: 'jugada_gato', tablero: tablero, turnoGato: turnoGato });
 }
 
 function actualizarTableroVisual() {
@@ -241,7 +240,11 @@ function reiniciarGato() {
 }
 
 function verificarGanadorGato() {
-    const combinaciones = [, [3, 4, 5], [6, 7, 8], // Horizontales, [1, 4, 7], [2, 5, 8], // Verticales, [2, 4, 6]             // Diagonales
+    // Combinaciones de victoria indexadas correctamente
+    const combinaciones = [
+        [0, 1, 2], [3, 4, 5], [6, 7, 8], // Horizontales
+        [0, 3, 6], [1, 4, 7], [2, 5, 8], // Verticales
+        [0, 4, 8], [2, 4, 6]             // Diagonales
     ];
     
     for (let combo of combinaciones) {
@@ -259,7 +262,8 @@ function verificarGanadorGato() {
         document.getElementById('gato-turno').innerText = "¡Empate técnico!";
         turnoGato = "FIN";
         juegoActivo = false;
-}}
+    }
+}
 
 // RECEPCIÓN DE ACCIONES DE MINIJUEGOS EN TIEMPO REAL
 socket.on('recibir_minijuego', (data) => {
