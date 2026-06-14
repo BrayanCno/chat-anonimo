@@ -1,6 +1,9 @@
 const socket = io();
 let miApodo = "";
 let escribiendoTimeout;
+let miEleccionPPT = "";
+let eleccionRivalPPT = "";
+
 
 // CONTROL DE ESTADO DEL JUEGO DEL GATO
 let miFicha = ""; // "X" u "O"
@@ -117,6 +120,7 @@ function cerrarJuegos() {
     document.getElementById('juego-verdad-reto').classList.add('oculto');
     document.getElementById('juego-gato').classList.add('oculto');
     document.getElementById('juego-dados').classList.add('oculto');
+    document.getElementById('juego-ppt').classList.add('oculto');
     
     const textoEspera = document.getElementById('vr-espera-texto');
     if (textoEspera) textoEspera.remove();
@@ -177,6 +181,72 @@ function lanzarDado() {
     socket.emit('enviar_mensaje', { tipo: 'texto', contenido: mensajeDado, usuario: miApodo });
     renderizarMensaje('yo', miApodo, 'texto', mensajeDado);
 }
+
+// LÓGICA: PIEDRA, PAPEL O TIJERA
+function iniciarPPT() {
+    alternarMenuJuegos();
+    miEleccionPPT = "";
+    eleccionRivalPPT = "";
+    
+    document.getElementById('juego-ppt').classList.remove('oculto');
+    document.getElementById('ppt-estado').innerText = "Elige tu jugada en secreto...";
+    document.getElementById('ppt-resultado').innerText = "";
+    
+    // Habilitar y resetear estilos de botones
+    const opciones = ['piedra', 'papel', 'tijera'];
+    opciones.forEach(op => {
+        const btn = document.getElementById(`btn-ppt-${op}`);
+        btn.disabled = false;
+        btn.style.background = "#2a3942";
+    });
+
+    // Le avisa al oponente que abra su ventana de juego
+    socket.emit('accion_minijuego', { tipo: 'abrir_ppt' });
+}
+
+function elegirPPT(opcion) {
+    miEleccionPPT = opcion;
+    document.getElementById('ppt-estado').innerText = "¡Elección registrada! Esperando al rival...";
+    
+    // Deshabilitar botones y destacar el elegido
+    const opciones = ['piedra', 'papel', 'tijera'];
+    opciones.forEach(op => {
+        const btn = document.getElementById(`btn-ppt-${op}`);
+        btn.disabled = true;
+        if(op === opcion) {
+            btn.style.background = "#00a884";
+        }
+    });
+
+    // Enviar jugada al rival
+    socket.emit('accion_minijuego', { tipo: 'jugada_ppt', eleccion: opcion, usuario: miApodo });
+    
+    // Si el rival ya había elegido, procesamos de una vez
+    if (eleccionRivalPPT) {
+        calcularResultadoPPT();
+    }
+}
+
+function calcularResultadoPPT() {
+    const iconos = { piedra: "✊", papel: "✋", tijera: "✌️" };
+    let textoResultado = "";
+
+    if (miEleccionPPT === eleccionRivalPPT) {
+        textoResultado = `¡Empate! Ambos eligieron ${iconos[miEleccionPPT]}`;
+    } else if (
+        (miEleccionPPT === "piedra" && eleccionRivalPPT === "tijera") ||
+        (miEleccionPPT === "papel" && eleccionRivalPPT === "piedra") ||
+        (miEleccionPPT === "tijera" && eleccionRivalPPT === "papel")
+    ) {
+        textoResultado = `¡Ganaste la ronda! 🎉<br>Tu ${iconos[miEleccionPPT]} vence a ${iconos[eleccionRivalPPT]}`;
+    } else {
+        textoResultado = `Perdiste esta ronda 😢<br>El rival te venció con ${iconos[eleccionRivalPPT]}`;
+    }
+
+    document.getElementById('ppt-estado').innerText = "¡Partida terminada!";
+    document.getElementById('ppt-resultado').innerHTML = textoResultado;
+}
+
 
 // LÓGICA REESCRITA: TRES EN LÍNEA (GATO)
 function iniciarGato() {
@@ -309,6 +379,32 @@ socket.on('recibir_minijuego', (data) => {
         document.getElementById('vr-aviso-rival').innerText = `¡${data.solicitante} pide ${data.categoria.toUpperCase()}!`;
         document.getElementById('vr-input-desafio').placeholder = data.categoria === 'verdad' ? 'Escribe la pregunta...' : 'Escribe el reto...';
     }
+
+        // Sincronizar apertura de Piedra, Papel o Tijera (Jugador 2)
+    if (data.tipo === 'abrir_ppt') {
+        miEleccionPPT = "";
+        eleccionRivalPPT = "";
+        document.getElementById('juego-ppt').classList.remove('oculto');
+        document.getElementById('ppt-estado').innerText = "Tu rival te desafía. ¡Elige tu jugada!";
+        document.getElementById('ppt-resultado').innerText = "";
+        ['piedra', 'papel', 'tijera'].forEach(op => {
+            const btn = document.getElementById(`btn-ppt-${op}`);
+            btn.disabled = false;
+            btn.style.background = "#2a3942";
+        });
+    }
+
+    // Recibir la jugada secreta del oponente
+    if (data.tipo === 'jugada_ppt') {
+        eleccionRivalPPT = data.eleccion;
+        
+        // Si tú ya habías elegido, calcula el ganador de inmediato
+        if (miEleccionPPT) {
+            calcularResultadoPPT();
+        }
+    }
+
+
 });
 
 // MULTIMEDIA Y CIERRES GENERALES
